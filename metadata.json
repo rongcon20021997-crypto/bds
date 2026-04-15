@@ -1,0 +1,6 @@
+{
+  "name": "Quy Hoạch Map UI",
+  "description": "Mobile UI for a land planning and zoning map application in Vietnam.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
