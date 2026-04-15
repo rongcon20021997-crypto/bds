@@ -77,16 +77,27 @@ export default function MapBackground({
       const ctrl = new AbortController();
       controllers.push(ctrl);
 
-      const filename = url.split('/').pop();
+      const filename = url.split('/').pop() ?? '';
+      const baseName = filename.replace(/\.kmz$/i, '');
       setLoadingSet(prev => new Set(prev).add(url));
 
-      fetch(`/api/kmz/${filename}`, { signal: ctrl.signal })
+      // Try static cache first (works on Vercel), then fall back to dev API
+      const cacheUrl = `/uploads/kmz-cache/${baseName}.json`;
+
+      fetch(cacheUrl, { signal: ctrl.signal })
         .then(async res => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: res.statusText }));
-            throw new Error(err.error ?? res.statusText);
+          if (res.ok) {
+            console.log(`[KMZ] Loaded from static cache: ${baseName}`);
+            return res.json() as Promise<{ layers: TileLayer_[] }>;
           }
-          return res.json() as Promise<{ layers: TileLayer_[] }>;
+          // Cache miss → fall back to dev server API
+          console.log(`[KMZ] Cache miss, trying API: ${filename}`);
+          const apiRes = await fetch(`/api/kmz/${filename}`, { signal: ctrl.signal });
+          if (!apiRes.ok) {
+            const err = await apiRes.json().catch(() => ({ error: apiRes.statusText }));
+            throw new Error(err.error ?? apiRes.statusText);
+          }
+          return apiRes.json() as Promise<{ layers: TileLayer_[] }>;
         })
         .then(data => {
           setLayerMap(prev => ({ ...prev, [url]: data.layers }));
